@@ -125,11 +125,6 @@ async def get_token_details(update: Update, context: CallbackContext, query: str
     else:
         await update.message.reply_text("⚠️ Failed to fetch token details. Try again later.")
 
-async def handle_text(update: Update, context: CallbackContext):
-    """Handles plain text queries (e.g., 'alpha')"""
-    query = update.message.text.strip()
-    await get_token_details(update, context, query)
-
 async def handle_command(update: Update, context: CallbackContext):
     """Handles command-style queries (e.g., '/alpha')"""
     command = update.message.text.strip().lower()
@@ -214,9 +209,6 @@ def main():
     # Handles /{symbol} commands (like /alph, /moga)
     app.add_handler(MessageHandler(filters.COMMAND, handle_command))  
     
-    # Message handler for plain text queries
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-
     print("Bot is running...")
     app.run_polling()
 
