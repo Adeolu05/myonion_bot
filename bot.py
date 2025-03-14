@@ -3,7 +3,8 @@ import io
 import os
 
 from config import BOT_TOKEN, TOKEN_API_URL, ALPH_PRICE_API, DEFAULT_SUPPLY  # Import from config.py
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile, BotCommand
+
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 from telegram.constants import ChatAction
 
@@ -200,22 +201,9 @@ async def help_command(update: Update, context: CallbackContext):
     
     await update.message.reply_text(message, parse_mode="Markdown")
 
-async def set_bot_commands(app):
-    """Register bot commands for the menu"""
-    commands = [
-        BotCommand("start", "Start the bot"),
-        BotCommand("help", "Get help using the bot"),
-        BotCommand("trending", "Show trending tokens"),
-        BotCommand("leaderboard", "Show top tokens by market cap"),
-    ]
-    await app.bot.set_my_commands(commands)
-
 def main():
     """Start the bot"""
     app = Application.builder().token(BOT_TOKEN).build()
-    
-    # Set bot commands
-    app.job_queue.run_once(lambda _: set_bot_commands(app), when=1)
     
     # Correct order of handlers
     app.add_handler(CommandHandler("start", start))
