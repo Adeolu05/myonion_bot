@@ -136,8 +136,14 @@ async def handle_command(update: Update, context: CallbackContext):
 
 # trending command
 async def trending_tokens(update: Update, context: CallbackContext):
-    """Fetch and display the top trending tokens"""
+    """Fetch and display the top trending tokens in USD"""
     await send_typing(update, context)
+
+    alph_price = await get_alph_price()  # Get latest ALPH price
+
+    if not alph_price:
+        await update.message.reply_text("⚠️ Failed to fetch ALPH price. Data may be inaccurate.")
+        return
 
     params = {"pageSize": 5, "page": 0, "orderBy": "volumeDaily", "desc": True}
     response = requests.get(TOKEN_API_URL, params=params)
@@ -149,20 +155,28 @@ async def trending_tokens(update: Update, context: CallbackContext):
             await update.message.reply_text("❌ No trending tokens found.")
             return
 
-        message = "🔥 *Trending Tokens (by Volume)*:\n\n"
+        message = "🔥 *Trending Tokens (by Volume in USD)*:\n\n"
         for i, token in enumerate(data, 1):
             name = token.get('name', 'Unknown')
             symbol = token.get('symbol', 'Unknown')
-            volume = round(token.get('volumeDaily', 0), 2)
-            message += f"{i}. *{name}* ({symbol}) - {volume} ℵ\n"
+            volume_alph = round(token.get('volumeDaily', 0), 2)
+            volume_usd = round(volume_alph * alph_price, 2)  # Convert to USD
+            message += f"{i}. *{name}* ({symbol}) - ${volume_usd:,}\n"
 
         await update.message.reply_text(message, parse_mode="Markdown")
     else:
         await update.message.reply_text("⚠️ Failed to fetch trending tokens.")
+
         
 async def leaderboard(update: Update, context: CallbackContext):
-    """Fetch and display the top tokens by market cap"""
+    """Fetch and display the top tokens by market cap in USD"""
     await send_typing(update, context)
+
+    alph_price = await get_alph_price()  # Get latest ALPH price
+
+    if not alph_price:
+        await update.message.reply_text("⚠️ Failed to fetch ALPH price. Data may be inaccurate.")
+        return
 
     params = {"pageSize": 5, "page": 0, "orderBy": "marketCap", "desc": True}
     response = requests.get(TOKEN_API_URL, params=params)
@@ -174,16 +188,18 @@ async def leaderboard(update: Update, context: CallbackContext):
             await update.message.reply_text("❌ No leaderboard data found.")
             return
 
-        message = "🏆 *Top Tokens (by Market Cap)*:\n\n"
+        message = "🏆 *Top Tokens (by Market Cap in USD)*:\n\n"
         for i, token in enumerate(data, 1):
             name = token.get('name', 'Unknown')
             symbol = token.get('symbol', 'Unknown')
-            market_cap = round(token.get('marketCap', 0), 2)
-            message += f"{i}. *{name}* ({symbol}) - {market_cap} ℵ\n"
+            market_cap_alph = round(token.get('marketCap', 0), 2)
+            market_cap_usd = round(market_cap_alph * alph_price, 2)  # Convert to USD
+            message += f"{i}. *{name}* ({symbol}) - ${market_cap_usd:,}\n"
 
         await update.message.reply_text(message, parse_mode="Markdown")
     else:
         await update.message.reply_text("⚠️ Failed to fetch leaderboard data.")
+
 
 async def help_command(update: Update, context: CallbackContext):
     """Handles the /help command"""
