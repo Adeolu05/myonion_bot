@@ -3,7 +3,6 @@ import io
 import os
 
 from config import BOT_TOKEN, TOKEN_API_URL, ALPH_PRICE_API, DEFAULT_SUPPLY  # Import from config.py
-
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 from telegram.constants import ChatAction
@@ -40,7 +39,7 @@ async def start(update: Update, context: CallbackContext):
 
 async def get_token_details(update: Update, context: CallbackContext, query: str):
     await send_typing(update, context)
-    """Fetches token details using symbol, name, or contract address (ID)"""
+    """Fetches token details using exact ticker symbol"""
     alph_price = await get_alph_price()
 
     params = {
@@ -56,6 +55,8 @@ async def get_token_details(update: Update, context: CallbackContext, query: str
 
     if response.status_code == 200:
         data = response.json().get("data", [])
+        
+        token = next((t for t in data if t.get('symbol', '').upper() == query.upper()), None)
 
         if not data:
             await update.message.reply_text("❌ Token not found.")
@@ -76,7 +77,7 @@ async def get_token_details(update: Update, context: CallbackContext, query: str
         
         # Determine Status
         if bonding_curve and dex_pair:
-            status = "Bonding Curve / AMM DEX"
+            status = "AMM DEX"
         elif bonding_curve and not dex_pair:
             status = "Bonding Curve"
         else:
@@ -108,7 +109,7 @@ async def get_token_details(update: Update, context: CallbackContext, query: str
         )
 
         keyboard = [
-            [InlineKeyboardButton("🔗 View on MyOnion.fun", url=f"https://myonion.fun/trade?tokenId={contract}")],
+            [InlineKeyboardButton("🔁 Trade on myonion.fun", url=f"https://myonion.fun/trade?tokenId={contract}")],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -126,10 +127,12 @@ async def get_token_details(update: Update, context: CallbackContext, query: str
         await update.message.reply_text("⚠️ Failed to fetch token details. Try again later.")
 
 async def handle_command(update: Update, context: CallbackContext):
-    """Handles command-style queries (e.g., '/alpha')"""
+    """Handles command-style queries (e.g., '/p alpha')"""
     command = update.message.text.strip().lower()
-    query = command.lstrip("/")  # Remove the leading '/' to get the symbol
-    await get_token_details(update, context, query)
+    if command.startswith("/p "):
+        query = command[3:].strip()
+        await get_token_details(update, context, query)
+
 
 # trending command
 async def trending_tokens(update: Update, context: CallbackContext):
@@ -207,7 +210,7 @@ def main():
     app.add_handler(CommandHandler("leaderboard", leaderboard))
     
     # Handles /{symbol} commands (like /alph, /moga)
-    app.add_handler(MessageHandler(filters.COMMAND, handle_command))  
+    app.add_handler(MessageHandler(filters.Regex(r"^/p "), handle_command))  
     
     print("Bot is running...")
     app.run_polling()
