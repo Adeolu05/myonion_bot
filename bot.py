@@ -205,18 +205,14 @@ def main():
     """Start the bot"""
     app = Application.builder().token(BOT_TOKEN).build()
     
-    # Command handlers for /start and /{symbol}
+    # Correct order of handlers
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.COMMAND, handle_command))  # Handles /alpha, /moga, etc.
-    
-    # Add this handler to your bot:
-    app.add_handler(CommandHandler("help", help_command))
-    
-    # Add this handler to your bot:
+    app.add_handler(CommandHandler("help", help_command))  # Ensure this comes before handle_command
     app.add_handler(CommandHandler("trending", trending_tokens))
-    
-    # Add this handler to your bot:
     app.add_handler(CommandHandler("leaderboard", leaderboard))
+    
+    # Handles /{symbol} commands (like /alph, /moga)
+    app.add_handler(MessageHandler(filters.COMMAND, handle_command))  
     
     # Message handler for plain text queries
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
