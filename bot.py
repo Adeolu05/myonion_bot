@@ -25,7 +25,7 @@ async def start(update: Update, context: CallbackContext):
     await send_typing(update, context)  # Show typing action
     """Handles the /start command with styling"""
     keyboard = [
-        [InlineKeyboardButton("🔍 Search Token", switch_inline_query="")],
+        # [InlineKeyboardButton("🔍 Search Token", switch_inline_query="")],
         [InlineKeyboardButton("📊 MyOnion.fun", url="https://myonion.fun")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -33,7 +33,7 @@ async def start(update: Update, context: CallbackContext):
     message = (
         "👋 *Welcome to the MyOnion Token Bot!* 🍔\n\n"
         "💡 Send me a *token symbol or name*, and I'll fetch its details instantly!\n\n"
-        "🔹 Try searching for `/ALPH` or `MOGA` to get started!\n"
+        "🔹 Try searching for `/layld` or `layld` to get started!\n"
     )
     await update.message.reply_text(message, parse_mode="Markdown", reply_markup=reply_markup)
 
