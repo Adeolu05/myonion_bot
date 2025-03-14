@@ -6,6 +6,11 @@ from config import BOT_TOKEN, TOKEN_API_URL, ALPH_PRICE_API, DEFAULT_SUPPLY  # I
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
+from telegram.constants import ChatAction
+
+async def send_typing(update: Update, context: CallbackContext):
+    await context.bot.send_chat_action(chat_id=update.message.chat_id, action=ChatAction.TYPING)
+
 
 async def get_alph_price():
     """Fetch real-time ALPH to USD conversion rate"""
@@ -17,10 +22,24 @@ async def get_alph_price():
         return None  # Return None if API fails
 
 async def start(update: Update, context: CallbackContext):
-    """Handles the /start command"""
-    await update.message.reply_text("Send me a token symbol, name, or contract address, and I'll fetch its details for you!")
+    await send_typing(update, context)  # Show typing action
+    """Handles the /start command with styling"""
+    keyboard = [
+        [InlineKeyboardButton("🔍 Search Token", switch_inline_query="")],
+        [InlineKeyboardButton("📊 MyOnion.fun", url="https://myonion.fun")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    message = (
+        "👋 *Welcome to the MyOnion Token Bot!* 🍔\n\n"
+        "💡 Send me a *token symbol or name*, and I'll fetch its details instantly!\n\n"
+        "🔹 Try searching for `/ALPH` or `MOGA` to get started!\n"
+    )
+    await update.message.reply_text(message, parse_mode="Markdown", reply_markup=reply_markup)
+
 
 async def get_token_details(update: Update, context: CallbackContext, query: str):
+    await send_typing(update, context)
     """Fetches token details using symbol, name, or contract address (ID)"""
     alph_price = await get_alph_price()
 
@@ -80,12 +99,12 @@ async def get_token_details(update: Update, context: CallbackContext, query: str
             logo_url = None
 
         message = (
-            f"🔹 *{name}* ({symbol})\n"
-            f"📜 Contract Address: `{contract}`\n"
-            f"💰 Price: *{price} ℵ* (~${price_usd})\n"
-            f"📊 Market Cap: *{market_cap_alph} ℵ* (~${market_cap_usd})\n"
-            f"📈 Daily Volume: *{volume_alph} ℵ* (~${volume_usd})\n"
-            f"📌 Status: *{status}*\n"
+            f"🚀 *{name}* (`{symbol}`)\n\n"
+            f"📜 *Contract:* `{contract}`\n"
+            f"💰 *Price:* `{price} ℵ`  _(≈ ${price_usd})_\n"
+            f"🏦 *Market Cap:* `{market_cap_alph} ℵ` _(≈ ${market_cap_usd})_\n"
+            f"📈 *Daily Volume:* `{volume_alph} ℵ` _(≈ ${volume_usd})_\n"
+            f"🔗 *Status:* `{status}`\n"
         )
 
         keyboard = [
@@ -117,6 +136,71 @@ async def handle_command(update: Update, context: CallbackContext):
     query = command.lstrip("/")  # Remove the leading '/' to get the symbol
     await get_token_details(update, context, query)
 
+# trending command
+async def trending_tokens(update: Update, context: CallbackContext):
+    """Fetch and display the top trending tokens"""
+    await send_typing(update, context)
+
+    params = {"pageSize": 5, "page": 0, "orderBy": "volumeDaily", "desc": True}
+    response = requests.get(TOKEN_API_URL, params=params)
+
+    if response.status_code == 200:
+        data = response.json().get("data", [])
+
+        if not data:
+            await update.message.reply_text("❌ No trending tokens found.")
+            return
+
+        message = "🔥 *Trending Tokens (by Volume)*:\n\n"
+        for i, token in enumerate(data, 1):
+            name = token.get('name', 'Unknown')
+            symbol = token.get('symbol', 'Unknown')
+            volume = round(token.get('volumeDaily', 0), 2)
+            message += f"{i}. *{name}* ({symbol}) - {volume} ℵ\n"
+
+        await update.message.reply_text(message, parse_mode="Markdown")
+    else:
+        await update.message.reply_text("⚠️ Failed to fetch trending tokens.")
+        
+async def leaderboard(update: Update, context: CallbackContext):
+    """Fetch and display the top tokens by market cap"""
+    await send_typing(update, context)
+
+    params = {"pageSize": 5, "page": 0, "orderBy": "marketCap", "desc": True}
+    response = requests.get(TOKEN_API_URL, params=params)
+
+    if response.status_code == 200:
+        data = response.json().get("data", [])
+
+        if not data:
+            await update.message.reply_text("❌ No leaderboard data found.")
+            return
+
+        message = "🏆 *Top Tokens (by Market Cap)*:\n\n"
+        for i, token in enumerate(data, 1):
+            name = token.get('name', 'Unknown')
+            symbol = token.get('symbol', 'Unknown')
+            market_cap = round(token.get('marketCap', 0), 2)
+            message += f"{i}. *{name}* ({symbol}) - {market_cap} ℵ\n"
+
+        await update.message.reply_text(message, parse_mode="Markdown")
+    else:
+        await update.message.reply_text("⚠️ Failed to fetch leaderboard data.")
+
+async def help_command(update: Update, context: CallbackContext):
+    """Handles the /help command"""
+    await send_typing(update, context)  # Show typing action
+    
+    message = (
+        "🤖 *How to Use the Bot:*\n\n"
+        "🔍 *Search Tokens:* Send a token symbol, name, or contract address.\n"
+        "📈 *Trending Tokens:* Use /trending to see the hottest tokens.\n"
+        "🏆 *Leaderboard:* Use /leaderboard to see the top tokens.\n"
+        "ℹ️ *More Info:* Visit [MyOnion.fun](https://myonion.fun) for detailed insights."
+    )
+    
+    await update.message.reply_text(message, parse_mode="Markdown")
+
 def main():
     """Start the bot"""
     app = Application.builder().token(BOT_TOKEN).build()
@@ -124,6 +208,15 @@ def main():
     # Command handlers for /start and /{symbol}
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.COMMAND, handle_command))  # Handles /alpha, /moga, etc.
+    
+    # Add this handler to your bot:
+    app.add_handler(CommandHandler("help", help_command))
+    
+    # Add this handler to your bot:
+    app.add_handler(CommandHandler("trending", trending_tokens))
+    
+    # Add this handler to your bot:
+    app.add_handler(CommandHandler("leaderboard", leaderboard))
     
     # Message handler for plain text queries
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
