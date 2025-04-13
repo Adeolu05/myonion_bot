@@ -3,12 +3,24 @@ import io
 import os
 
 from config import BOT_TOKEN, TOKEN_API_URL, ALPH_PRICE_API, DEFAULT_SUPPLY  # Import from config.py
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile, InputMediaPhoto
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, CallbackQueryHandler, ApplicationBuilder
+from telegram.request import HTTPXRequest
 from telegram.constants import ChatAction
 
+request = HTTPXRequest(connect_timeout=10.0, read_timeout=20.0)
+application = ApplicationBuilder().token("YOUR_BOT_TOKEN").request(request).build()
+
 async def send_typing(update: Update, context: CallbackContext):
-    await context.bot.send_chat_action(chat_id=update.message.chat_id, action=ChatAction.TYPING)
+    if update.message:
+        chat_id = update.message.chat_id
+    elif update.callback_query:
+        chat_id = update.callback_query.message.chat_id
+    else:
+        return
+
+    await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
+
 
 
 async def get_alph_price():
@@ -37,9 +49,11 @@ async def start(update: Update, context: CallbackContext):
     await update.message.reply_text(message, parse_mode="Markdown", reply_markup=reply_markup)
 
 
-async def get_token_details(update: Update, context: CallbackContext, query: str):
+async def get_token_details(update: Update, context: CallbackContext, query: str, is_callback=False):
     await send_typing(update, context)
-    """Fetches token details using exact ticker symbol"""
+
+    message_obj = update.callback_query.message if is_callback else update.message
+
     alph_price = await get_alph_price()
 
     params = {
@@ -55,49 +69,39 @@ async def get_token_details(update: Update, context: CallbackContext, query: str
 
     if response.status_code == 200:
         data = response.json().get("data", [])
-        
-        token = next((t for t in data if t.get('symbol', '').upper() == query.upper()), None)
 
         if not data:
-            await update.message.reply_text("❌ Token not found.")
+            if is_callback:
+                await update.callback_query.answer("❌ Token not found.", show_alert=True)
+            else:
+                await message_obj.reply_text("❌ Token not found.")
             return
 
-        token = data[0]
+        token = next((t for t in data if t.get('symbol', '').upper() == query.upper()), None)
+        if not token:
+            token = data[0]
 
         name = token.get('name', 'Unknown')
         symbol = token.get('symbol', 'Unknown')
         contract = token.get('id', 'N/A')
         market_cap_alph = round(token.get('marketCap', 0), 2)
         volume_alph = round(token.get('volumeDaily', 0), 2)
-        
+
         bonding_curve = token.get('bondingCurve', None)
         dex_pair = token.get('dexPair', None)
-        
         logo_filename = token.get('logo', None)
-        
-        # Determine Status
-        if bonding_curve and dex_pair:
-            status = "AMM DEX"
-        elif bonding_curve and not dex_pair:
-            status = "Bonding Curve"
-        else:
-            status = "N/A"
 
+        status = "AMM DEX" if bonding_curve and dex_pair else "Bonding Curve" if bonding_curve else "N/A"
         price = f"{market_cap_alph / DEFAULT_SUPPLY:.10f}" if market_cap_alph else "N/A"
-        
+
         if alph_price:
             market_cap_usd = f"{market_cap_alph * alph_price:.2f}"
             volume_usd = f"{volume_alph * alph_price:.2f}"
             price_usd = f"{float(price) * alph_price:.10f}" if price != "N/A" else "N/A"
         else:
-            market_cap_usd = "N/A"
-            volume_usd = "N/A"
-            price_usd = "N/A"
+            market_cap_usd = volume_usd = price_usd = "N/A"
 
-        if logo_filename:
-            logo_url = f"https://file.myonion.fun/cdn-cgi/image/width=800,height=800,fit=crop,format=webp,quality=100/{logo_filename}"
-        else:
-            logo_url = None
+        logo_url = f"https://file.myonion.fun/cdn-cgi/image/width=800,height=800,fit=crop,format=webp,quality=100/{logo_filename}" if logo_filename else None
 
         message = (
             f"🚀 *{name}* (`{symbol}`)\n\n"
@@ -110,6 +114,7 @@ async def get_token_details(update: Update, context: CallbackContext, query: str
 
         keyboard = [
             [InlineKeyboardButton("🔁 Trade on myonion.fun", url=f"https://myonion.fun/trade?tokenId={contract}")],
+            [InlineKeyboardButton("🔄 Refresh", callback_data=f"refresh_{symbol}")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -118,13 +123,32 @@ async def get_token_details(update: Update, context: CallbackContext, query: str
             if logo_response.status_code == 200:
                 image_stream = io.BytesIO(logo_response.content)
                 image_stream.name = "logo.jpg"
-                await update.message.reply_photo(photo=InputFile(image_stream), caption=message, parse_mode="Markdown", reply_markup=reply_markup)
+
+                if is_callback:
+                    await message_obj.edit_media(
+                        media=InputMediaPhoto(media=image_stream, caption=message, parse_mode="Markdown"),
+                        reply_markup=reply_markup
+                    )
+                else:
+                    await message_obj.reply_photo(
+                        photo=InputFile(image_stream),
+                        caption=message,
+                        parse_mode="Markdown",
+                        reply_markup=reply_markup
+                    )
                 return
 
-        await update.message.reply_text(message, parse_mode="Markdown", reply_markup=reply_markup)
+        if is_callback:
+            await message_obj.edit_text(text=message, parse_mode="Markdown", reply_markup=reply_markup)
+        else:
+            await message_obj.reply_text(message, parse_mode="Markdown", reply_markup=reply_markup)
 
     else:
-        await update.message.reply_text("⚠️ Failed to fetch token details. Try again later.")
+        error_text = "⚠️ Failed to fetch token details. Try again later."
+        if is_callback:
+            await message_obj.edit_text(text=error_text)
+        else:
+            await message_obj.reply_text(error_text)
 
 async def handle_command(update: Update, context: CallbackContext):
     """Handles command-style queries (e.g., '/p alpha')"""
@@ -133,6 +157,13 @@ async def handle_command(update: Update, context: CallbackContext):
         query = command[3:].strip()
         await get_token_details(update, context, query)
 
+# refresh
+async def handle_refresh(update: Update, context: CallbackContext):
+    """Handles the refresh callback"""
+    query = update.callback_query
+    await query.answer("🔄 Updating data...", show_alert=False)
+    symbol = query.data.split("_", 1)[1]  # Get token symbol from callback data
+    await get_token_details(update, context, symbol, is_callback=True)
 
 # trending command
 async def trending_tokens(update: Update, context: CallbackContext):
@@ -226,7 +257,9 @@ def main():
     app.add_handler(CommandHandler("leaderboard", leaderboard))
     
     # Handles /{symbol} commands (like /alph, /moga)
-    app.add_handler(MessageHandler(filters.Regex(r"^/p "), handle_command))  
+    app.add_handler(MessageHandler(filters.Regex(r"^/p "), handle_command))
+    app.add_handler(CallbackQueryHandler(handle_refresh, pattern=r"^refresh_"))  # Refresh handler
+
     
     print("Bot is running...")
     app.run_polling()
