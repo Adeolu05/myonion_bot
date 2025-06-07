@@ -5,11 +5,7 @@ import os
 from config import BOT_TOKEN, TOKEN_API_URL, ALPH_PRICE_API, DEFAULT_SUPPLY  # Import from config.py
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, CallbackQueryHandler, ApplicationBuilder
-from telegram.request import HTTPXRequest
 from telegram.constants import ChatAction
-
-request = HTTPXRequest(connect_timeout=10.0, read_timeout=20.0)
-application = ApplicationBuilder().token("YOUR_BOT_TOKEN").request(request).build()
 
 async def send_typing(update: Update, context: CallbackContext):
     if update.message:
@@ -43,8 +39,8 @@ async def start(update: Update, context: CallbackContext):
 
     message = (
         "👋 *Welcome to the MyOnion Token Bot!* 🍔\n\n"
-        "💡 Send me a *token symbol or name*, and I'll fetch its details instantly!\n\n"
-        "🔹 Try searching for `/layld` or `layld` to get started!\n"
+        "💡 Send me */price with a token symbol or name*, and I'll fetch its details instantly!\n\n"
+        "🔹 Try searching for `/price layld` to get started!\n"
     )
     await update.message.reply_text(message, parse_mode="Markdown", reply_markup=reply_markup)
 
@@ -238,7 +234,7 @@ async def help_command(update: Update, context: CallbackContext):
     
     message = (
         "🤖 *How to Use the Bot:*\n\n"
-        "🔍 *Search Tokens:* Send a token symbol, name, or contract address.\n"
+        "🔍 *Search Tokens:* Send a /price with a token symbol, name, or contract address.\n"
         "📈 *Trending Tokens:* Use /trending to see the hottest tokens.\n"
         "🏆 *Leaderboard:* Use /leaderboard to see the top tokens.\n"
         "ℹ️ *More Info:* Visit [MyOnion.fun](https://myonion.fun) for detailed insights."
@@ -257,7 +253,7 @@ def main():
     app.add_handler(CommandHandler("leaderboard", leaderboard))
     
     # Handles /{symbol} commands (like /alph, /moga)
-    app.add_handler(MessageHandler(filters.Regex(r"^/p "), handle_command))
+    app.add_handler(MessageHandler(filters.Regex(r"^/price "), handle_command))
     app.add_handler(CallbackQueryHandler(handle_refresh, pattern=r"^refresh_"))  # Refresh handler
 
     
