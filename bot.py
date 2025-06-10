@@ -17,8 +17,6 @@ async def send_typing(update: Update, context: CallbackContext):
 
     await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
 
-
-
 async def get_alph_price():
     """Fetch real-time ALPH to USD conversion rate"""
     try:
@@ -39,8 +37,8 @@ async def start(update: Update, context: CallbackContext):
 
     message = (
         "👋 *Welcome to the MyOnion Token Bot!* 🍔\n\n"
-        "💡 Send me */price with a token symbol or name*, and I'll fetch its details instantly!\n\n"
-        "🔹 Try searching for `/price layld` to get started!\n"
+        "💡 Send me */c with a token symbol or name*, and I'll fetch its details instantly!\n\n"
+        "🔹 Try searching for `/c layld` to get started!\n"
     )
     await update.message.reply_text(message, parse_mode="Markdown", reply_markup=reply_markup)
 
@@ -234,7 +232,7 @@ async def help_command(update: Update, context: CallbackContext):
     
     message = (
         "🤖 *How to Use the Bot:*\n\n"
-        "🔍 *Search Tokens:* Send a /price with a token symbol, name, or contract address.\n"
+        "🔍 *Search Tokens:* Send a /c with a token symbol, name, or contract address.\n"
         "📈 *Trending Tokens:* Use /trending to see the hottest tokens.\n"
         "🏆 *Leaderboard:* Use /leaderboard to see the top tokens.\n"
         "ℹ️ *More Info:* Visit [MyOnion.fun](https://myonion.fun) for detailed insights."
@@ -253,7 +251,7 @@ def main():
     app.add_handler(CommandHandler("leaderboard", leaderboard))
     
     # Handles /{symbol} commands (like /alph, /moga)
-    app.add_handler(MessageHandler(filters.Regex(r"^/price "), handle_command))
+    app.add_handler(MessageHandler(filters.Regex(r"^/c "), handle_command))
     app.add_handler(CallbackQueryHandler(handle_refresh, pattern=r"^refresh_"))  # Refresh handler
 
     
