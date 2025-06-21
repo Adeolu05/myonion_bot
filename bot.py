@@ -145,9 +145,9 @@ async def get_token_details(update: Update, context: CallbackContext, query: str
             await message_obj.reply_text(error_text)
 
 async def handle_command(update: Update, context: CallbackContext):
-    """Handles command-style queries (e.g., '/p alpha')"""
+    """Handles command-style queries (e.g., ' alpha')"""
     command = update.message.text.strip().lower()
-    if command.startswith("/p "):
+    if command.startswith("/c"):
         query = command[3:].strip()
         await get_token_details(update, context, query)
 
